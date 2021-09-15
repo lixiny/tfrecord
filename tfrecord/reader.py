@@ -66,7 +66,7 @@ def tfrecord_iterator(
                 raise RuntimeError("Failed to read the record size.")
             if file.readinto(crc_bytes) != 4:
                 raise RuntimeError("Failed to read the start token.")
-            length, = struct.unpack("<Q", length_bytes)
+            (length,) = struct.unpack("<Q", length_bytes)
             if length > len(datum_bytes):
                 datum_bytes = datum_bytes.zfill(int(length * 1.5))
             datum_bytes_view = memoryview(datum_bytes)[:length]
@@ -96,12 +96,11 @@ def tfrecord_iterator(
     file.close()
 
 
-def process_feature(feature: example_pb2.Feature,
-                    typename: str,
-                    typename_mapping: dict,
-                    key: str):
+def process_feature(feature: example_pb2.Feature, typename: str, typename_mapping: dict, key: str):
     # NOTE: We assume that each key in the example has only one field
     # (either "bytes_list", "float_list", or "int64_list")!
+    if len(feature.ListFields()) == 0:
+        return None
     field = feature.ListFields()[0]
     inferred_typename, value = field[0].name, field[1].value
 
@@ -109,8 +108,9 @@ def process_feature(feature: example_pb2.Feature,
         tf_typename = typename_mapping[typename]
         if tf_typename != inferred_typename:
             reversed_mapping = {v: k for k, v in typename_mapping.items()}
-            raise TypeError(f"Incompatible type '{typename}' for `{key}` "
-                        f"(should be '{reversed_mapping[inferred_typename]}').")
+            raise TypeError(
+                f"Incompatible type '{typename}' for `{key}` " f"(should be '{reversed_mapping[inferred_typename]}')."
+            )
 
     if inferred_typename == "bytes_list":
         value = np.frombuffer(value[0], dtype=np.uint8)
@@ -127,19 +127,21 @@ def extract_feature_dict(features, description, typename_mapping):
 
         def get_value(typename, typename_mapping, key):
             feature = features[key].feature
-            fn = functools.partial(process_feature, typename=typename,
-                                   typename_mapping=typename_mapping, key=key)
+            fn = functools.partial(process_feature, typename=typename, typename_mapping=typename_mapping, key=key)
             return list(map(fn, feature))
+
     elif isinstance(features, example_pb2.Features):
         features = features.feature
 
         def get_value(typename, typename_mapping, key):
-            return process_feature(features[key], typename,
-                                   typename_mapping, key)
+            return process_feature(features[key], typename, typename_mapping, key)
+
     else:
-        raise TypeError(f"Incompatible type: features should be either of type "
-                        f"example_pb2.Features or example_pb2.FeatureLists and "
-                        f"not {type(features)}")
+        raise TypeError(
+            f"Incompatible type: features should be either of type "
+            f"example_pb2.Features or example_pb2.FeatureLists and "
+            f"not {type(features)}"
+        )
 
     all_keys = list(features.keys())
 
@@ -203,11 +205,7 @@ def example_loader(
         an individual record).
     """
 
-    typename_mapping = {
-        "byte": "bytes_list",
-        "float": "float_list",
-        "int": "int64_list"
-    }
+    typename_mapping = {"byte": "bytes_list", "float": "float_list", "int": "int64_list"}
 
     record_iterator = tfrecord_iterator(
         data_path=data_path,
@@ -226,19 +224,11 @@ def example_loader(
 def sequence_loader(
     data_path: str,
     index_path: typing.Union[str, None],
-    context_description: typing.Union[
-        typing.List[str], typing.Dict[str, str], None
-    ] = None,
-    features_description: typing.Union[
-        typing.List[str], typing.Dict[str, str], None
-    ] = None,
+    context_description: typing.Union[typing.List[str], typing.Dict[str, str], None] = None,
+    features_description: typing.Union[typing.List[str], typing.Dict[str, str], None] = None,
     shard: typing.Optional[typing.Tuple[int, int]] = None,
     compression_type: typing.Optional[str] = None,
-) -> typing.Iterable[
-    typing.Tuple[
-        typing.Dict[str, np.ndarray], typing.Dict[str, typing.List[np.ndarray]]
-    ]
-]:
+) -> typing.Iterable[typing.Tuple[typing.Dict[str, np.ndarray], typing.Dict[str, typing.List[np.ndarray]]]]:
     """Create an iterator over the (decoded) sequence examples contained within
     the dataset.
 
@@ -286,11 +276,7 @@ def sequence_loader(
         Decoded bytes of the sequence features into its respective data
         type.
     """
-    typename_mapping = {
-        "byte": "bytes_list",
-        "float": "float_list",
-        "int": "int64_list"
-    }
+    typename_mapping = {"byte": "bytes_list", "float": "float_list", "int": "int64_list"}
 
     record_iterator = tfrecord_iterator(
         data_path=data_path,
@@ -314,16 +300,12 @@ def tfrecord_loader(
     index_path: typing.Union[str, None],
     description: typing.Union[typing.List[str], typing.Dict[str, str], None] = None,
     shard: typing.Optional[typing.Tuple[int, int]] = None,
-    sequence_description: typing.Union[
-        typing.List[str], typing.Dict[str, str], None
-    ] = None,
+    sequence_description: typing.Union[typing.List[str], typing.Dict[str, str], None] = None,
     compression_type: typing.Optional[str] = None,
 ) -> typing.Iterable[
     typing.Union[
         typing.Dict[str, np.ndarray],
-        typing.Tuple[
-            typing.Dict[str, np.ndarray], typing.Dict[str, typing.List[np.ndarray]]
-        ],
+        typing.Tuple[typing.Dict[str, np.ndarray], typing.Dict[str, typing.List[np.ndarray]]],
     ]
 ]:
     """Create an iterator over the (decoded) examples contained within
@@ -380,27 +362,31 @@ def tfrecord_loader(
             context_description=description,
             features_description=sequence_description,
             shard=shard,
-            compression_type=compression_type
+            compression_type=compression_type,
         )
     return example_loader(
         data_path=data_path,
         index_path=index_path,
         description=description,
         shard=shard,
-        compression_type=compression_type
+        compression_type=compression_type,
     )
 
 
-def multi_tfrecord_loader(data_pattern: str,
-                          index_pattern: typing.Union[str, None],
-                          splits: typing.Dict[str, float],
-                          description: typing.Union[typing.List[str], typing.Dict[str, str], None] = None,
-                          sequence_description: typing.Union[typing.List[str], typing.Dict[str, str], None] = None,
-                          compression_type: typing.Optional[str] = None,
-                          infinite: bool = True,
-                          ) -> typing.Iterable[typing.Union[typing.Dict[str, np.ndarray],
-                                                            typing.Tuple[typing.Dict[str, np.ndarray],
-                                                                         typing.Dict[str, typing.List[np.ndarray]]]]]:
+def multi_tfrecord_loader(
+    data_pattern: str,
+    index_pattern: typing.Union[str, None],
+    splits: typing.Dict[str, float],
+    description: typing.Union[typing.List[str], typing.Dict[str, str], None] = None,
+    sequence_description: typing.Union[typing.List[str], typing.Dict[str, str], None] = None,
+    compression_type: typing.Optional[str] = None,
+    infinite: bool = True,
+) -> typing.Iterable[
+    typing.Union[
+        typing.Dict[str, np.ndarray],
+        typing.Tuple[typing.Dict[str, np.ndarray], typing.Dict[str, typing.List[np.ndarray]]],
+    ]
+]:
     """Create an iterator by reading and merging multiple tfrecord datasets.
 
     NOTE: Sharding is currently unavailable for the multi tfrecord loader.
@@ -436,7 +422,7 @@ def multi_tfrecord_loader(data_pattern: str,
     compression_type: str, optional, default=None
         The type of compression used for the tfrecord. Choose either
         'gzip' or None.
-    
+
     infinite: bool, optional, default=True
         Whether the returned iterator should be infinite or not
 
@@ -445,12 +431,15 @@ def multi_tfrecord_loader(data_pattern: str,
     it: iterator
         A repeating iterator that generates batches of data.
     """
-    loaders = [functools.partial(tfrecord_loader, data_path=data_pattern.format(split),
-                                 index_path=index_pattern.format(split) \
-                                     if index_pattern is not None else None,
-                                 description=description,
-                                 sequence_description=sequence_description,
-                                 compression_type=compression_type,
-                                 )
-               for split in splits.keys()]
+    loaders = [
+        functools.partial(
+            tfrecord_loader,
+            data_path=data_pattern.format(split),
+            index_path=index_pattern.format(split) if index_pattern is not None else None,
+            description=description,
+            sequence_description=sequence_description,
+            compression_type=compression_type,
+        )
+        for split in splits.keys()
+    ]
     return iterator_utils.sample_iterators(loaders, list(splits.values()), infinite=infinite)
