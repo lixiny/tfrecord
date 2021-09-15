@@ -7,7 +7,6 @@ index_path = None
 dataset = TFRecordDataset(tfrecord_path, index_path)
 
 
-index = 0
 all_items_list = []
 for data in tqdm(iter(dataset)):
     all_items = {}
@@ -16,16 +15,13 @@ for data in tqdm(iter(dataset)):
 
     all_items_list.append(all_items)
 
-    with open(f"part-r/part-r-00001-{index}.pkl", "wb") as f:
-        pickle.dump(all_items, f)
-
-    index = index + 1
+with open(f"part-r/part-r-00001.pkl", "wb") as f:
+    pickle.dump(all_items_list, f)
 
 
-import pickle
+# 测试读取
+with open("part-r-00001.pkl", "rb") as f:
+    my_item_list = pickle.load(f)
 
-with open("part-r-00001-111.pkl", "rb") as f:
-    my_item = pickle.load(f)
-
-for k, v in my_item.items():
+for k, v in my_item_list[0].items():
     print(k, type(v), v)

@@ -1,3 +1,19 @@
+# 看这里
+
+1. 装环境，python3.8
+    ```
+    pip install torch==1.9.0+cpu
+    pip install tqdm
+    ```
+2. 把`part-r-00001.tfr`放在当前目录下
+3. 执行
+    ```
+    python test_tfrecord_dump.py
+    ```
+    
+
+
+
 # TFRecord reader and writer
 
 This library allows reading and writing tfrecord files efficiently in python. The library also provides an IterableDataset reader of tfrecord files for PyTorch. Currently uncompressed and compressed gzip TFRecords are supported.
